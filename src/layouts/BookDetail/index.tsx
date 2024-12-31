@@ -168,7 +168,7 @@ const BookDetail = ({ book }: BookDetailProps) => {
         rateBook();
       } else {
         toast.info(
-          "Invalid rating value. Please enter a value between 1 and 10."
+          "Invalid rating value. Please enter a value between 1 and 5."
         );
       }
     } else {
@@ -316,7 +316,7 @@ const BookDetail = ({ book }: BookDetailProps) => {
               </Tooltip>
             </div>
             <iframe
-              src={`https://docenti.unimc.it/antonella.pascali/teaching/2018/19055/files/ultima-lezione/harry-potter-and-the-philosophers-stone`}
+              src={`https://jknopper.win.tue.nl/latex/exercises/day1/snowwhite.pdf`}
               width="100%"
               height="100%"
               style={{ border: "none" }}
