@@ -1,9 +1,9 @@
 import axios, { AxiosResponse } from "axios";
 
-// const baseURL = `https://book-recommender-content-base.onrender.com`;
-const baseURL = `http://localhost:5500`;
+// const baseURL = `https://638d-59-153-247-212.ngrok-free.app`;
+const baseURL = `http://localhost:5001`;
 
-const contentBasedInstance = axios.create({
+const RAGInstance = axios.create({
   baseURL: baseURL,
   headers: {
     "Content-Type": "application/json",
@@ -24,19 +24,19 @@ const handleErrorResponse = (error: any) => {
   }
 };
 
-export const setCBHeaderConfigAxios = (token?: string) => {
+export const setCFHeaderConfigAxios = (token?: string) => {
   if (token) {
-    contentBasedInstance.defaults.headers.common["Authorization"] = token
+    RAGInstance.defaults.headers.common["Authorization"] = token
       ? "Bearer " + token
       : "";
   } else {
-    delete contentBasedInstance.defaults.headers.common["Authorization"];
+    delete RAGInstance.defaults.headers.common["Authorization"];
   }
 };
 
-contentBasedInstance.interceptors.response.use(
+RAGInstance.interceptors.response.use(
   handleSuccessResponse,
   handleErrorResponse
 );
 
-export default contentBasedInstance;
+export default RAGInstance;

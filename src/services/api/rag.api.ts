@@ -1,41 +1,15 @@
-import instance from "../config";
+import RAGInstance from "../config/RAG-config";
 
 type QuestionType = {
   question: string;
-  conversation?: string;
+  context: string;
+  curFile: number;
 };
 
-const getAnswerByUser = (data: QuestionType) => {
-  return instance.post("/conversation/ask", data);
-};
-
-const getAnswerByCustomer = (data: QuestionType) => {
-  return instance.post("/customer/question", data);
-};
-
-const getConversationUser = () => {
-  return instance.get<any>("/conversation");
-};
-
-const deleteConversationUser = (id: string) => {
-  return instance.delete<any>(`/conversation/${id}`);
-};
-
-const getConversationContent = (id: string) => {
-  return instance.get(`/conversation/${id}`);
-};
-
-const ratingConversationContent = (id: string, feedback: string) => {
-  return instance.post(`/user/content/${id}/rate`, {
-    feedback,
-  });
+const getAnswer = (data: QuestionType) => {
+  return RAGInstance.post("/ask", data);
 };
 
 export const ModelApi = {
-  getAnswerByUser,
-  getAnswerByCustomer,
-  deleteConversationUser,
-  getConversationUser,
-  getConversationContent,
-  ratingConversationContent,
+  getAnswer,
 };

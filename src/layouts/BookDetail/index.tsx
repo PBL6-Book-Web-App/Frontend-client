@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useState } from "react";
+import React, { forwardRef, useCallback, useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -28,20 +28,12 @@ import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import AssistantIcon from "@mui/icons-material/Assistant";
 import CloseIcon from "@mui/icons-material/Close";
 import LogoutIcon from "@mui/icons-material/Logout";
-import HTMLFlipBook from "react-pageflip";
-import { pdfjs, Document, Page as ReactPdfPage } from "react-pdf";
-// import { RAGChat } from "../../components/RAGMessage";
+import TextArea from "antd/es/input/TextArea";
+import { ModelApi } from "../../services/api/rag.api";
+import ChatIcon from "@mui/icons-material/Chat";
 
-// Cấu hình worker cho pdf.js
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
-
-const width = 300;
-const height = 424;
 interface BookDetailProps {
   book: IBook;
-}
-interface PageProps {
-  pageNumber: number;
 }
 
 const BookDetail = ({ book }: BookDetailProps) => {
@@ -54,6 +46,55 @@ const BookDetail = ({ book }: BookDetailProps) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
   const [assistantWidth, setAssistantWidth] = useState(300);
+  const [question, setQuestion] = useState("");
+  const [answers, setAnswers] = useState<string[]>(["", "", "", ""]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [curContext, setCurContext] = useState<string>("");
+  const [curFile, setCurFile] = useState<number>(1);
+  const [curPdfURL, setCurPdfURL] = useState<string>("");
+  const [conversation, setConversation] = useState<any[]>([]);
+  const handleGetAnswer = useCallback(async () => {
+    try {
+      if (question === "") {
+        toast.error("Please enter a question");
+        return;
+      }
+
+      setIsLoading(true);
+
+      setConversation((prev) => [
+        ...prev,
+        { type: "question", text: question },
+      ]);
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Request timed out after 30 seconds")),
+          30000
+        )
+      );
+
+      const fetchPromise = ModelApi.getAnswer({
+        question: question.trim(),
+        context: curContext,
+        curFile: curFile,
+      });
+
+      const res: any = await Promise.race([fetchPromise, timeoutPromise]);
+      console.log(res);
+      setConversation((prev) => [
+        ...prev,
+        { type: "answer", text: res.data.answer || "No response from AI" },
+      ]);
+      setCurContext(res.data.context);
+      setQuestion("");
+    } catch (error: any) {
+      console.log(error);
+      toast.error(error?.message || "There are some problem");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [answers, question]);
 
   const toggleFullscreen = () => {
     if (!isFullscreen) {
@@ -178,6 +219,15 @@ const BookDetail = ({ book }: BookDetailProps) => {
 
   // Hàm mở dialog
   const handleOpenPdfViewer = () => {
+    if (curFile == 1) {
+      setCurPdfURL(
+        "https://jknopper.win.tue.nl/latex/exercises/day1/snowwhite.pdf"
+      );
+      setCurFile(2);
+    } else {
+      setCurPdfURL("http://tvnsaddleback.org/images/TamCam.pdf");
+      setCurFile(1);
+    }
     setIsBookModalOpen(true);
   };
 
@@ -186,16 +236,59 @@ const BookDetail = ({ book }: BookDetailProps) => {
     setIsFullscreen(false);
     setIsAIAssistantOpen(false);
     setIsBookModalOpen(false);
+    setConversation([]);
   };
-  const Page = forwardRef<HTMLDivElement, PageProps>(({ pageNumber }, ref) => {
-    return (
-      <div ref={ref}>
-        <ReactPdfPage pageNumber={pageNumber} width={width} />
-      </div>
-    );
-  });
 
-  Page.displayName = "Page";
+  const LoadingIndicator = () => (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: "5px",
+        marginTop: "10px",
+      }}>
+      <span
+        style={{
+          width: "8px",
+          height: "8px",
+          backgroundColor: "#74aa9c",
+          borderRadius: "50%",
+          animation: "loading-bounce 1.4s infinite ease-in-out both",
+          animationDelay: "0s",
+        }}></span>
+      <span
+        style={{
+          width: "8px",
+          height: "8px",
+          backgroundColor: "#74aa9c",
+          borderRadius: "50%",
+          animation: "loading-bounce 1.4s infinite ease-in-out both",
+          animationDelay: "0.2s",
+        }}></span>
+      <span
+        style={{
+          width: "8px",
+          height: "8px",
+          backgroundColor: "#74aa9c",
+          borderRadius: "50%",
+          animation: "loading-bounce 1.4s infinite ease-in-out both",
+          animationDelay: "0.4s",
+        }}></span>
+      <style>
+        {`
+          @keyframes loading-bounce {
+            0%, 80%, 100% {
+              transform: scale(0);
+            }
+            40% {
+              transform: scale(1);
+            }
+          }
+        `}
+      </style>
+    </div>
+  );
 
   return (
     <Box maxWidth="lg" paddingY={"1rem"} margin={"auto"}>
@@ -316,7 +409,7 @@ const BookDetail = ({ book }: BookDetailProps) => {
               </Tooltip>
             </div>
             <iframe
-              src={`https://jknopper.win.tue.nl/latex/exercises/day1/snowwhite.pdf`}
+              src={curPdfURL}
               width="100%"
               height="100%"
               style={{ border: "none" }}
@@ -340,13 +433,103 @@ const BookDetail = ({ book }: BookDetailProps) => {
               }}>
               <div
                 style={{
-                  height: "100%",
-                  overflowY: "auto",
+                  height: "100vh", // Full chiều cao màn hình
+                  width: "100%", // Chiếm toàn bộ chiều rộng
+                  display: "flex",
+                  flexDirection: "column",
+                  backgroundColor: "#f5f5f5",
                 }}>
-                <h3>AI Assistant</h3>
-                <p>Chat with AI goes here...</p>
-                {/* <RAGChat /> */}
+                {/* Header */}
+                <h3
+                  style={{
+                    padding: "16px",
+                    textAlign: "center",
+                    backgroundColor: "#74aa9c",
+                    color: "#fff",
+                  }}>
+                  AI Assistant <ChatIcon />
+                </h3>
+
+                {/* Chat container */}
+                <div
+                  style={{
+                    flex: 1,
+                    padding: "16px",
+                    overflowY: "auto",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                    backgroundColor: "#fff",
+                  }}>
+                  {conversation.map((item, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems:
+                          item.type === "question" ? "flex-end" : "flex-start",
+                      }}>
+                      <div
+                        style={{
+                          maxWidth: "70%",
+                          padding: "10px 14px",
+                          borderRadius: "12px",
+                          backgroundColor:
+                            item.type === "question" ? "#74aa9c" : "#f1f1f1",
+                          color: item.type === "question" ? "#fff" : "#000",
+                          textAlign: "left",
+                          fontSize: "14px",
+                          wordWrap: "break-word",
+                        }}>
+                        {item.text}
+                      </div>
+                    </div>
+                  ))}
+                  {isLoading && <LoadingIndicator />}
+                </div>
+
+                {/* Input container */}
+                <div
+                  style={{
+                    padding: "16px",
+                    borderTop: "1px solid #ddd",
+                    backgroundColor: "#f5f5f5",
+                  }}>
+                  <textarea
+                    style={{
+                      width: "100%",
+                      height: "50px",
+                      fontSize: "16px",
+                      borderRadius: "8px",
+                      padding: "8px",
+                      border: "1px solid #ccc",
+                      resize: "none",
+                    }}
+                    placeholder="Type your question here..."
+                    value={question}
+                    onChange={(event) => setQuestion(event.target.value)}
+                  />
+                  <button
+                    style={{
+                      marginTop: "8px",
+                      width: "100%",
+                      height: "40px",
+                      backgroundColor: isLoading ? "#ccc" : "#74aa9c",
+                      color: "#fff",
+                      fontSize: "16px",
+                      border: "none",
+                      borderRadius: "8px",
+                      cursor: isLoading ? "not-allowed" : "pointer",
+                      opacity: isLoading ? 0.7 : 1,
+                    }}
+                    disabled={isLoading}
+                    onClick={handleGetAnswer}>
+                    {isLoading ? "Loading..." : "Submit"}
+                  </button>
+                </div>
               </div>
+
               <div
                 style={{
                   width: "5px",
